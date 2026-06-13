@@ -37,9 +37,9 @@ function formatDateRange(m) {
               <h3 class="nm">{{ m.name }}</h3>
               <p class="dt">{{ formatDateRange(m) }}</p>
               <div class="stats">
-                <span>🕯{{ m.candles || 0 }}</span>
-                <span>🤍{{ m.flowers || 0 }}</span>
-                <span>💬{{ m.messages?.length || 0 }}</span>
+                <span class="icon-text"><span class="ci">🕯</span><span class="cn">{{ m.candles || 0 }}</span></span>
+                <span class="icon-text"><span class="ci"><svg width="14" height="14" viewBox="0 0 100 100" style="vertical-align:middle;"><g transform="translate(50,50)" stroke="#e0d8c8" stroke-width="0.3"><ellipse cx="0" cy="-20" rx="7" ry="16" fill="#f5f0e8" transform="rotate(0)"/><ellipse cx="0" cy="-20" rx="7" ry="16" fill="#fff" transform="rotate(45)"/><ellipse cx="0" cy="-20" rx="7" ry="16" fill="#f5f0e8" transform="rotate(90)"/><ellipse cx="0" cy="-20" rx="7" ry="16" fill="#fff" transform="rotate(135)"/><ellipse cx="0" cy="-20" rx="7" ry="16" fill="#f5f0e8" transform="rotate(180)"/><ellipse cx="0" cy="-20" rx="7" ry="16" fill="#fff" transform="rotate(225)"/><ellipse cx="0" cy="-20" rx="7" ry="16" fill="#f5f0e8" transform="rotate(270)"/><ellipse cx="0" cy="-20" rx="7" ry="16" fill="#fff" transform="rotate(315)"/><circle cx="0" cy="0" r="9" fill="#f0e0a0"/><circle cx="0" cy="0" r="5" fill="#e0c860"/></g></svg></span><span class="cn">{{ m.flowers || 0 }}</span></span>
+                <span class="icon-text"><span class="ci">💬</span><span class="cn">{{ m.messages?.length || 0 }}</span></span>
               </div>
             </div>
           </div>
@@ -65,6 +65,9 @@ function formatDateRange(m) {
 .info{flex:1;min-width:0}
 .nm{font-size:1rem;font-weight:600}
 .dt{font-size:0.75rem;color:rgba(200,190,220,0.4);margin-top:2px}
-.stats{display:flex;gap:12px;font-size:0.75rem;color:rgba(200,190,220,0.4);margin-top:6px}
+.stats{display:flex;gap:8px;font-size:0.75rem;color:rgba(200,190,220,0.4);margin-top:6px}
+.icon-text{display:inline-flex;align-items:center;gap:4px}
+.ci{display:inline-flex;align-items:center;line-height:1}
+.cn{line-height:1}
 .btn-primary{margin-top:16px;padding:12px 24px;border:none;border-radius:12px;background:linear-gradient(135deg,#c89030,#ffd700);color:#0a0a1a;font-size:0.9rem;font-weight:600;font-family:inherit;cursor:pointer}
 </style>

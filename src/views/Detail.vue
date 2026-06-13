@@ -7,6 +7,10 @@ const route = useRoute()
 const router = useRouter()
 const { getMemorial, updateMemorial } = useMemorials()
 const newMessage = ref('')
+const replyTo = ref(null)
+const isEditing = ref(false)
+const editForm = ref({})
+const photoInput = ref(null)
 
 const m = computed(() => getMemorial(route.params.id))
 const daysSinceLeave = computed(() => {
@@ -27,22 +31,91 @@ function formatTime(t) {
   return d < 60000 ? '刚刚' : d < 3600000 ? `${Math.floor(d/60000)}分钟前` : d < 86400000 ? `${Math.floor(d/3600000)}小时前` : new Date(t).toLocaleDateString('zh-CN')
 }
 
+function startEdit() {
+  const data = { ...m.value }
+  // 转换日期为原生input格式
+  if (data.birthYear) {
+    data.birthDateNative = data.birthYear + '-' + String(data.birthMonth).padStart(2,'0') + '-' + String(data.birthDay).padStart(2,'0')
+  } else { data.birthDateNative = '' }
+  if (data.leaveYear) {
+    data.leaveDateNative = data.leaveYear + '-' + String(data.leaveMonth).padStart(2,'0') + '-' + String(data.leaveDay).padStart(2,'0')
+  } else { data.leaveDateNative = '' }
+  editForm.value = data
+  isEditing.value = true
+}
+
+function cancelEdit() {
+  isEditing.value = false
+}
+
+function saveEdit() {
+  const data = { ...editForm.value }
+  // 转换日期格式
+  if (data.birthDateNative) {
+    const d = new Date(data.birthDateNative)
+    data.birthYear = d.getFullYear(); data.birthMonth = d.getMonth() + 1; data.birthDay = d.getDate()
+  } else { data.birthYear = ''; data.birthMonth = ''; data.birthDay = '' }
+  if (data.leaveDateNative) {
+    const d = new Date(data.leaveDateNative)
+    data.leaveYear = d.getFullYear(); data.leaveMonth = d.getMonth() + 1; data.leaveDay = d.getDate()
+  } else { data.leaveYear = ''; data.leaveMonth = ''; data.leaveDay = '' }
+  delete data.id; delete data.candles; delete data.flowers; delete data.messages; delete data.createdAt
+  delete data.birthDateNative; delete data.leaveDateNative
+  updateMemorial(m.value.id, data)
+  isEditing.value = false
+}
+
+function onPhotoChange(e) {
+  const f = e.target.files[0]
+  if (!f) return
+  const r = new FileReader()
+  r.onload = ev => { editForm.value.photo = ev.target.result }
+  r.readAsDataURL(f)
+}
+
+const years = computed(() => Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - i))
+function daysInMonth(y, m) { return (!y || !m) ? 31 : new Date(y, m, 0).getDate() }
+
 function lightCandle() { if (m.value) updateMemorial(m.value.id, { candles: (m.value.candles || 0) + 1 }) }
 function offerFlower() { if (m.value) updateMemorial(m.value.id, { flowers: (m.value.flowers || 0) + 1 }) }
 function addMessage() {
   if (!m.value || !newMessage.value.trim()) return
-  const msgs = [...(m.value.messages || []), { text: newMessage.value.trim(), time: new Date().toISOString() }]
+  const msgs = [...(m.value.messages || [])]
+  if (replyTo.value) {
+    // 回复
+    const parent = msgs.find(msg => msg.id === replyTo.value)
+    if (parent) {
+      if (!parent.replies) parent.replies = []
+      parent.replies.push({ id: Date.now().toString(), text: newMessage.value.trim(), time: new Date().toISOString() })
+    }
+    replyTo.value = null
+  } else {
+    // 新留言
+    msgs.push({ id: Date.now().toString(), text: newMessage.value.trim(), time: new Date().toISOString(), replies: [] })
+  }
   updateMemorial(m.value.id, { messages: msgs })
   newMessage.value = ''
+}
+
+function startReply(msgId) {
+  replyTo.value = msgId
+  document.querySelector('.mi-input input')?.focus()
 }
 </script>
 
 <template>
   <div class="page">
     <div class="inner" v-if="m">
-      <button class="back" @click="router.push('/')">← 回到星空</button>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <button class="back" @click="router.push('/mine')">← 返回</button>
+        <button v-if="!isEditing" class="back" style="color:rgba(255,215,0,0.5);" @click="startEdit">✏️ 编辑</button>
+        <div v-else style="display:flex;gap:8px;">
+          <button class="back" style="color:rgba(200,190,220,0.5);" @click="cancelEdit">取消</button>
+          <button class="back" style="color:#ffd700;" @click="saveEdit">💾 保存</button>
+        </div>
+      </div>
 
-      <div class="card tc">
+      <div v-show="!isEditing" class="card tc">
         <div class="photo-area">
           <img v-if="m.photo" :src="m.photo" class="avatar" />
           <div v-else class="avatar-ph">{{ m.gender==='boy'?'👦':m.gender==='girl'?'👧':'👼' }}</div>
@@ -51,18 +124,18 @@ function addMessage() {
         <p class="dates">{{ formatDateRange() }}</p>
         <p v-if="daysSinceLeave" class="days">已经离开 {{ daysSinceLeave }} 天</p>
         <div v-if="m.story" class="story"><p class="story-label">📖 在人间的故事</p><p class="story-text">{{ m.story }}</p></div>
-        <p v-if="m.message" class="msg">{{ m.message }}</p>
+        <div v-if="m.message" class="story"><p class="story-label">💌 妈妈寄语</p><p class="story-text">{{ m.message }}</p></div>
       </div>
 
-      <div class="card">
+      <div v-show="!isEditing" class="card">
         <div class="interact-row">
           <button class="ibtn" @click="lightCandle">
-            <svg width="24" height="40" viewBox="0 0 48 80"><rect x="16" y="20" width="16" height="50" rx="3" fill="#f8f4e8" stroke="#e8dcc8" stroke-width="1"/><line x1="24" y1="12" x2="24" y2="22" stroke="#666" stroke-width="2"/><ellipse cx="24" cy="10" rx="6" ry="10" fill="#ffcc00" opacity="0.9"/></svg>
+            <span style="font-size:1.5rem;line-height:1;">🕯</span>
             <span class="ic">{{ m.candles || 0 }}</span>
             <span class="il">点蜡烛</span>
           </button>
           <button class="ibtn" @click="offerFlower">
-            <svg width="32" height="32" viewBox="0 0 100 100"><g transform="translate(50,50)"><ellipse cx="0" cy="-20" rx="8" ry="18" fill="#f5f0e8" stroke="#e0d8c8" stroke-width="0.5" transform="rotate(0)"/><ellipse cx="0" cy="-20" rx="8" ry="18" fill="#fff" stroke="#e0d8c8" stroke-width="0.5" transform="rotate(45)"/><ellipse cx="0" cy="-20" rx="8" ry="18" fill="#f5f0e8" stroke="#e0d8c8" stroke-width="0.5" transform="rotate(90)"/><ellipse cx="0" cy="-20" rx="8" ry="18" fill="#fff" stroke="#e0d8c8" stroke-width="0.5" transform="rotate(135)"/><ellipse cx="0" cy="-20" rx="8" ry="18" fill="#f5f0e8" stroke="#e0d8c8" stroke-width="0.5" transform="rotate(180)"/><ellipse cx="0" cy="-20" rx="8" ry="18" fill="#fff" stroke="#e0d8c8" stroke-width="0.5" transform="rotate(225)"/><ellipse cx="0" cy="-20" rx="8" ry="18" fill="#f5f0e8" stroke="#e0d8c8" stroke-width="0.5" transform="rotate(270)"/><ellipse cx="0" cy="-20" rx="8" ry="18" fill="#fff" stroke="#e0d8c8" stroke-width="0.5" transform="rotate(315)"/><circle cx="0" cy="0" r="10" fill="#f0e0a0"/><circle cx="0" cy="0" r="6" fill="#e0c860"/></g></svg>
+            <span style="display:inline-flex;align-items:center;"><svg width="14" height="14" viewBox="0 0 100 100" style="vertical-align:middle;"><g transform="translate(50,50)" stroke="#e0d8c8" stroke-width="0.3"><ellipse cx="0" cy="-20" rx="7" ry="16" fill="#f5f0e8" transform="rotate(0)"/><ellipse cx="0" cy="-20" rx="7" ry="16" fill="#fff" transform="rotate(45)"/><ellipse cx="0" cy="-20" rx="7" ry="16" fill="#f5f0e8" transform="rotate(90)"/><ellipse cx="0" cy="-20" rx="7" ry="16" fill="#fff" transform="rotate(135)"/><ellipse cx="0" cy="-20" rx="7" ry="16" fill="#f5f0e8" transform="rotate(180)"/><ellipse cx="0" cy="-20" rx="7" ry="16" fill="#fff" transform="rotate(225)"/><ellipse cx="0" cy="-20" rx="7" ry="16" fill="#f5f0e8" transform="rotate(270)"/><ellipse cx="0" cy="-20" rx="7" ry="16" fill="#fff" transform="rotate(315)"/><circle cx="0" cy="0" r="9" fill="#f0e0a0"/><circle cx="0" cy="0" r="5" fill="#e0c860"/></g></svg></span>
             <span class="ic">{{ m.flowers || 0 }}</span>
             <span class="il">献白菊</span>
           </button>
@@ -70,17 +143,57 @@ function addMessage() {
       </div>
 
       <div class="card">
-        <h3 class="st">💬 留言寄思</h3>
-        <div v-if="m.messages?.length" class="ml">
-          <div v-for="(msg,i) in m.messages" :key="i" class="mi"><p class="mt">{{ msg.text }}</p><p class="mtime">{{ formatTime(msg.time) }}</p></div>
+        <h3 v-show="!isEditing" class="st">💬 留言寄思</h3>
+        <div v-if="m.messages?.length && !isEditing" class="ml">
+          <div v-for="(msg,i) in m.messages" :key="msg.id" class="mi">
+            <p class="mt">{{ msg.text }}</p>
+            <p class="mtime">
+              <span>{{ formatTime(msg.time) }}</span>
+              <span class="reply-btn" @click="startReply(msg.id)">回复</span>
+            </p>
+            <!-- 回复列表 -->
+            <div v-if="msg.replies?.length" class="replies">
+              <div v-for="(r,ri) in msg.replies" :key="r.id" class="reply-item">
+                <p class="rt">{{ r.text }}</p>
+                <p class="mtime">{{ formatTime(r.time) }}</p>
+              </div>
+            </div>
+          </div>
         </div>
-        <p v-else class="nm">还没有留言，写下第一条吧</p>
-        <div class="mi-row"><input v-model="newMessage" class="input" placeholder="写下你的祝福..." @keyup.enter="addMessage" /><button class="bs" @click="addMessage">发送</button></div>
+        <p v-show="!isEditing" class="nm">还没有留言，写下第一条吧</p>
+        <div v-if="isEditing" class="card" style="text-align:left;margin-top:16px;">
+        <p style="font-size:0.8rem;color:rgba(255,215,0,0.5);margin-bottom:12px;">✏️ 编辑宝宝信息</p>
+        <div class="fg"><label class="el">照片</label>
+          <div style="display:flex;align-items:center;gap:12px;cursor:pointer;" @click="photoInput?.click()">
+            <img v-if="editForm.photo" :src="editForm.photo" style="width:60px;height:60px;border-radius:50%;object-fit:cover;" />
+            <div v-else style="width:60px;height:60px;border-radius:50%;background:rgba(255,215,0,0.1);display:flex;align-items:center;justify-content:center;font-size:1.5rem;">📷</div>
+            <span style="font-size:0.75rem;color:rgba(200,190,220,0.5);">点击更换</span>
+          </div>
+          <input ref="photoInput" type="file" accept="image/*" style="display:none" @change="onPhotoChange" />
+        </div>
+        <div class="fg"><label class="el">名字</label><input v-model="editForm.name" class="ei" /></div>
+        <div class="fg"><label class="el">性别</label>
+          <div style="display:flex;gap:8px;">
+            <span class="tag" :class="{active:editForm.gender==='boy'}" @click="editForm.gender='boy'">👦 男孩</span>
+            <span class="tag" :class="{active:editForm.gender==='girl'}" @click="editForm.gender='girl'">👧 女孩</span>
+            <span class="tag" :class="{active:editForm.gender==='unknown'}" @click="editForm.gender='unknown'">未知</span>
+          </div>
+        </div>
+        <div class="fg"><label class="el">出生日期</label>
+          <input type="date" v-model="editForm.birthDateNative" class="ei" />
+        </div>
+        <div class="fg"><label class="el">离开日期</label>
+          <input type="date" v-model="editForm.leaveDateNative" class="ei" />
+        </div>
+        <div class="fg"><label class="el">故事</label><textarea v-model="editForm.story" class="ei" style="min-height:60px;resize:vertical;"></textarea></div>
+        <div class="fg"><label class="el">寄语</label><textarea v-model="editForm.message" class="ei" style="min-height:60px;resize:vertical;"></textarea></div>
       </div>
-    </div>
-    <div v-else class="inner" style="text-align:center;padding-top:100px;color:rgba(200,190,220,0.5);">
-      <p>未找到该纪念</p>
-      <button class="back" @click="router.push('/')">← 回到星空</button>
+        <div v-show="!isEditing" class="mi-row mi-input">
+          <input v-model="newMessage" class="input" :placeholder="replyTo ? '回复中...' : '写下你的祝福...'" @keyup.enter="addMessage" />
+          <button v-if="replyTo" class="bs" style="background:rgba(200,190,220,0.1);color:rgba(200,190,220,0.6);" @click="replyTo=null">取消</button>
+          <button class="bs" @click="addMessage">发送</button>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -116,4 +229,27 @@ function addMessage() {
 .input{flex:1;padding:10px 14px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,215,0,0.12);border-radius:10px;color:#d8d0c8;font-size:0.9375rem;font-family:inherit;outline:none}
 .input:focus{border-color:rgba(255,215,0,0.4)}
 .bs{padding:10px 16px;border:none;border-radius:10px;background:linear-gradient(135deg,#c89030,#ffd700);color:#0a0a1a;font-size:0.875rem;font-weight:500;cursor:pointer;font-family:inherit}
+</style>
+<style scoped>
+.fg{margin-bottom:14px}
+.el{display:block;font-size:0.75rem;color:rgba(255,215,0,0.5);margin-bottom:6px}
+.ei{width:100%;padding:8px 12px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,215,0,0.12);border-radius:8px;color:#d8d0c8;font-size:0.875rem;font-family:inherit;outline:none}
+.ei:focus{border-color:rgba(255,215,0,0.4)}
+.tag{display:inline-block;padding:4px 12px;border-radius:16px;font-size:0.75rem;cursor:pointer;border:1px solid rgba(255,215,0,0.12);background:rgba(255,255,255,0.03);color:rgba(200,190,220,0.6);transition:all 0.2s}
+.tag.active{background:rgba(255,215,0,0.15);color:#ffd700;border-color:rgba(255,215,0,0.3)}
+</style>
+<style scoped>
+.reply-btn{display:inline-block;margin-left:12px;font-size:0.6875rem;color:rgba(255,215,0,0.4);cursor:pointer}
+.reply-btn:hover{color:rgba(255,215,0,0.7)}
+.replies{margin-top:8px;margin-left:20px;padding-left:12px;border-left:2px solid rgba(255,215,0,0.1)}
+.reply-item{padding:6px 0}
+.rt{font-size:0.8125rem;color:rgba(200,190,220,0.6)}
+</style>
+<style scoped>
+.fg{margin-bottom:14px}
+.el{display:block;font-size:0.75rem;color:rgba(255,215,0,0.5);margin-bottom:6px}
+.ei{width:100%;padding:8px 12px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,215,0,0.12);border-radius:8px;color:#d8d0c8;font-size:0.875rem;font-family:inherit;outline:none}
+.ei:focus{border-color:rgba(255,215,0,0.4)}
+.tag{display:inline-block;padding:4px 12px;border-radius:16px;font-size:0.75rem;cursor:pointer;border:1px solid rgba(255,215,0,0.12);background:rgba(255,255,255,0.03);color:rgba(200,190,220,0.6);transition:all 0.2s}
+.tag.active{background:rgba(255,215,0,0.15);color:#ffd700;border-color:rgba(255,215,0,0.3)}
 </style>

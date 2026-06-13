@@ -50,4 +50,21 @@ body::-webkit-scrollbar{width:0;display:none}body{-ms-overflow-style:none;scroll
 .nav-item{display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 20px;border:none;background:none;color:rgba(200,190,220,0.4);font-size:0.6875rem;cursor:pointer;font-family:inherit;transition:color 0.2s}
 .nav-item.active{color:#ffd700}
 .nav-icon{font-size:1.25rem}
+
+
+/* Vant Picker 暗色主题 */
+.van-picker { background: #0d1025 !important; }
+.van-picker-column__item { color: #e8e0d0 !important; font-size: 16px !important; }
+.van-picker-column__item--selected { color: #ffd700 !important; font-weight: 600 !important; }
+.van-picker__mask { background-image: linear-gradient(180deg, rgba(13,16,37,0.95), transparent, rgba(13,16,37,0.95)) !important; }
+.van-picker__frame { border-top: 1px solid rgba(255,215,0,0.12) !important; border-bottom: 1px solid rgba(255,215,0,0.12) !important; }
+.van-picker__toolbar { background: #0d1025 !important; border-bottom: 1px solid rgba(255,215,0,0.06) !important; }
+.van-picker__confirm { color: #ffd700 !important; }
+.van-picker__cancel { color: #a8a0b0 !important; }
+.van-picker__title { color: #ffd700 !important; }
+
+/* Popup */
+.van-popup { background: #0d1025 !important; }
+.van-popup--round { border-radius: 16px 16px 0 0 !important; }
+
 </style>

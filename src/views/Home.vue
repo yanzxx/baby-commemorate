@@ -372,9 +372,9 @@ onMounted(() => { initParticles() })
               <span v-if="getDaysSinceLeave(m) >= 0" style="color:rgba(232,160,176,0.6);margin-left:8px;">已离开 {{ getDaysSinceLeave(m) }} 天</span>
             </p>
           </div>
-          <div style="display:flex;gap:8px;font-size:0.75rem;color:rgba(200,190,220,0.4);flex-shrink:0;">
-            <span>🕯{{ m.candles || 0 }}</span>
-            <span>🤍{{ m.flowers || 0 }}</span>
+          <div style="display:flex;gap:6px;align-items:center;font-size:0.75rem;color:rgba(200,190,220,0.4);flex-shrink:0;">
+            <span style="display:inline-flex;align-items:center;gap:3px;">🕯{{ m.candles || 0 }}</span>
+            <span style="display:inline-flex;align-items:center;gap:3px;"><svg width="14" height="14" viewBox="0 0 100 100" style="vertical-align:middle;"><g transform="translate(50,50)" stroke="#e0d8c8" stroke-width="0.3"><ellipse cx="0" cy="-20" rx="7" ry="16" fill="#f5f0e8" transform="rotate(0)"/><ellipse cx="0" cy="-20" rx="7" ry="16" fill="#fff" transform="rotate(45)"/><ellipse cx="0" cy="-20" rx="7" ry="16" fill="#f5f0e8" transform="rotate(90)"/><ellipse cx="0" cy="-20" rx="7" ry="16" fill="#fff" transform="rotate(135)"/><ellipse cx="0" cy="-20" rx="7" ry="16" fill="#f5f0e8" transform="rotate(180)"/><ellipse cx="0" cy="-20" rx="7" ry="16" fill="#fff" transform="rotate(225)"/><ellipse cx="0" cy="-20" rx="7" ry="16" fill="#f5f0e8" transform="rotate(270)"/><ellipse cx="0" cy="-20" rx="7" ry="16" fill="#fff" transform="rotate(315)"/><circle cx="0" cy="0" r="9" fill="#f0e0a0"/><circle cx="0" cy="0" r="5" fill="#e0c860"/></g></svg>{{ m.flowers || 0 }}</span>
           </div>
         </div>
       </div>

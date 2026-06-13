@@ -6,22 +6,50 @@ import { useMemorials } from '../composables/useMemorials.js'
 const router = useRouter()
 const { addMemorial } = useMemorials()
 const photoInput = ref(null)
+const showBirth = ref(false)
+const showLeave = ref(false)
+
+function onBirthConfirm({ selectedValues }) {
+  const [y, m, d] = selectedValues
+  form.value.birthDateNative = y + '-' + String(m).padStart(2,'0') + '-' + String(d).padStart(2,'0')
+  form.value.birthDateDisplay = y + '年' + m + '月' + d + '日'
+  showBirth.value = false
+}
+
+function onLeaveConfirm({ selectedValues }) {
+  const [y, m, d] = selectedValues
+  form.value.leaveDateNative = y + '-' + String(m).padStart(2,'0') + '-' + String(d).padStart(2,'0')
+  form.value.leaveDateDisplay = y + '年' + m + '月' + d + '日'
+  showLeave.value = false
+}
 
 const form = ref({
   name: '', photo: null,
-  birthYear: '', birthMonth: '', birthDay: '',
-  leaveYear: '', leaveMonth: '', leaveDay: '',
+  birthDateNative: '',
+  leaveDateNative: '',
+  birthDateDisplay: '',
+  leaveDateDisplay: '',
   gender: '', story: '', message: '',
   privacy: 'public',
 })
 
-const years = computed(() => Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - i))
-function daysInMonth(y, m) { return (!y || !m) ? 31 : new Date(y, m, 0).getDate() }
+// const years (unused)
+// function daysInMonth (unused)
 function onPhotoChange(e) { const f = e.target.files[0]; if (!f) return; const r = new FileReader(); r.onload = ev => { form.value.photo = ev.target.result }; r.readAsDataURL(f) }
 
 function submit() {
   if (!form.value.name.trim()) { alert('请填写宝宝名字'); return }
-  addMemorial({ id: Date.now().toString(), ...form.value, candles: 0, flowers: 0, messages: [], createdAt: new Date().toISOString() })
+  const data = { ...form.value }
+  if (data.birthDateNative) {
+    const d = new Date(data.birthDateNative)
+    data.birthYear = d.getFullYear(); data.birthMonth = d.getMonth() + 1; data.birthDay = d.getDate()
+  }
+  if (data.leaveDateNative) {
+    const d = new Date(data.leaveDateNative)
+    data.leaveYear = d.getFullYear(); data.leaveMonth = d.getMonth() + 1; data.leaveDay = d.getDate()
+  }
+  delete data.birthDateNative; delete data.leaveDateNative
+  addMemorial({ id: Date.now().toString(), ...data, candles: 0, flowers: 0, messages: [], createdAt: new Date().toISOString() })
   router.push('/')
 }
 </script>
@@ -46,19 +74,17 @@ function submit() {
       <div class="card">
         <div class="fg"><label class="label">宝宝名字</label><input v-model="form.name" class="input" placeholder="给宝宝起个小名" /></div>
         <div class="fg">
-          <label class="label">出生日期（可选）</label>
-          <div class="ds">
-            <select v-model="form.birthYear" class="input"><option value="">年</option><option v-for="y in years" :key="y" :value="y">{{y}}</option></select>
-            <select v-model="form.birthMonth" class="input"><option value="">月</option><option v-for="m in 12" :key="m" :value="m">{{m}}月</option></select>
-            <select v-model="form.birthDay" class="input"><option value="">日</option><option v-for="d in daysInMonth(form.birthYear,form.birthMonth)" :key="d" :value="d">{{d}}日</option></select>
+          <label class="label">出生日期</label>
+          <div class="input date-trigger" @click="showBirth = true">
+            <span v-if="form.birthDateDisplay" style="color:#d8d0c8;">{{ form.birthDateDisplay }}</span>
+            <span v-else style="color:rgba(200,190,220,0.4);">点击选择</span>
           </div>
         </div>
         <div class="fg">
-          <label class="label">离开日期（可选）</label>
-          <div class="ds">
-            <select v-model="form.leaveYear" class="input"><option value="">年</option><option v-for="y in years" :key="y" :value="y">{{y}}</option></select>
-            <select v-model="form.leaveMonth" class="input"><option value="">月</option><option v-for="m in 12" :key="m" :value="m">{{m}}月</option></select>
-            <select v-model="form.leaveDay" class="input"><option value="">日</option><option v-for="d in daysInMonth(form.leaveYear,form.leaveMonth)" :key="d" :value="d">{{d}}日</option></select>
+          <label class="label">离开日期</label>
+          <div class="input date-trigger" @click="showLeave = true">
+            <span v-if="form.leaveDateDisplay" style="color:#d8d0c8;">{{ form.leaveDateDisplay }}</span>
+            <span v-else style="color:rgba(200,190,220,0.4);">点击选择</span>
           </div>
         </div>
         <div class="fg">
@@ -84,6 +110,34 @@ function submit() {
 
       <button class="btn-primary" @click="submit">✨ 点亮这颗星</button>
     </div>
+
+    <!-- 出生日期选择器 -->
+    <van-popup v-model:show="showBirth" position="bottom" round :style="{ height: '50%' }">
+      <div style="background:#0d1025;padding-bottom:env(safe-area-inset-bottom);">
+        <van-date-picker
+          title="选择出生日期"
+          @cancel="showBirth = false"
+          @confirm="onBirthConfirm"
+          :columns-type="['year', 'month', 'day']"
+          :min-date="new Date(1900,0,1)"
+          :max-date="new Date()"
+        />
+      </div>
+    </van-popup>
+
+    <!-- 离开日期选择器 -->
+    <van-popup v-model:show="showLeave" position="bottom" round :style="{ height: '45%' }">
+      <div style="background:#0d1025;padding-bottom:env(safe-area-inset-bottom);">
+        <van-date-picker
+          title="选择离开日期"
+          @cancel="showLeave = false"
+          @confirm="onLeaveConfirm"
+          :columns-type="['year', 'month', 'day']"
+          :min-date="new Date(1900,0,1)"
+          :max-date="new Date()"
+        />
+      </div>
+    </van-popup>
   </div>
 </template>
 
