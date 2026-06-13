@@ -6,6 +6,8 @@ import { useMemorials } from '../composables/useMemorials.js'
 const router = useRouter()
 const { addMemorial } = useMemorials()
 const photoInput = ref(null)
+const audioInput = ref(null)
+const videoInput = ref(null)
 const showBirth = ref(false)
 const showLeave = ref(false)
 
@@ -36,8 +38,10 @@ const form = ref({
 // const years (unused)
 // function daysInMonth (unused)
 function onPhotoChange(e) { const f = e.target.files[0]; if (!f) return; const r = new FileReader(); r.onload = ev => { form.value.photo = ev.target.result }; r.readAsDataURL(f) }
+function onAudioChange(e) { const f = e.target.files[0]; if (!f) return; form.value.audioName = f.name; const r = new FileReader(); r.onload = ev => { form.value.audio = ev.target.result }; r.readAsDataURL(f) }
+function onVideoChange(e) { const f = e.target.files[0]; if (!f) return; form.value.videoName = f.name; const r = new FileReader(); r.onload = ev => { form.value.video = ev.target.result }; r.readAsDataURL(f) }
 
-function submit() {
+async function submit() {
   if (!form.value.name.trim()) { alert('请填写宝宝名字'); return }
   const data = { ...form.value }
   if (data.birthDateNative) {
@@ -49,6 +53,26 @@ function submit() {
     data.leaveYear = d.getFullYear(); data.leaveMonth = d.getMonth() + 1; data.leaveDay = d.getDate()
   }
   delete data.birthDateNative; delete data.leaveDateNative
+
+  // 尝试上传文件到七牛云
+  const { uploadMedia } = await import('../qiniu.js')
+
+  // 上传音频
+  if (data.audio && data.audio.startsWith('data:')) {
+    const file = await fetch(data.audio).then(r => r.blob())
+    const url = await uploadMedia(file, 'audio')
+    if (url) data.audio = url
+    delete data.audioName
+  }
+
+  // 上传视频
+  if (data.video && data.video.startsWith('data:')) {
+    const file = await fetch(data.video).then(r => r.blob())
+    const url = await uploadMedia(file, 'video')
+    if (url) data.video = url
+    delete data.videoName
+  }
+
   addMemorial({ id: Date.now().toString(), ...data, candles: 0, flowers: 0, messages: [], createdAt: new Date().toISOString() })
   router.push('/')
 }
@@ -99,6 +123,20 @@ function submit() {
 
       <div class="card"><label class="label">宝宝在人间的故事</label><textarea v-model="form.story" class="input ta" placeholder="写下宝宝来到这个世界的故事..."></textarea></div>
       <div class="card"><label class="label">想对宝宝说的话</label><textarea v-model="form.message" class="input ta" placeholder="写下你想对宝宝说的话..."></textarea></div>
+        <div class="card"><label class="label">音频（可选）</label>
+        <div style="display:flex;align-items:center;gap:10px;margin-top:8px;">
+          <button type="button" class="media-btn" @click="$refs.audioInput.click()">🎵 选择音频文件</button>
+          <span v-if="form.audioName" style="font-size:0.75rem;color:rgba(255,215,0,0.6);">{{ form.audioName }}</span>
+        </div>
+        <input ref="audioInput" type="file" accept="audio/*" style="display:none" @change="onAudioChange" />
+      </div>
+      <div class="card"><label class="label">视频（可选）</label>
+        <div style="display:flex;align-items:center;gap:10px;margin-top:8px;">
+          <button type="button" class="media-btn" @click="$refs.videoInput.click()">🎬 选择视频文件</button>
+          <span v-if="form.videoName" style="font-size:0.75rem;color:rgba(255,215,0,0.6);">{{ form.videoName }}</span>
+        </div>
+        <input ref="videoInput" type="file" accept="video/*" style="display:none" @change="onVideoChange" />
+      </div>
 
       <div class="card">
         <label class="label">隐私设置</label>
@@ -168,4 +206,5 @@ function submit() {
 .po-d{font-size:0.75rem;color:rgba(200,190,220,0.4);margin-top:2px}
 .btn-primary{width:100%;padding:14px;border:none;border-radius:14px;background:linear-gradient(135deg,#c89030,#ffd700);color:#0a0a1a;font-size:1rem;font-weight:600;font-family:inherit;cursor:pointer;box-shadow:0 4px 20px rgba(255,215,0,0.2)}
 .btn-primary:active{transform:scale(0.98)}
+.media-btn{padding:8px 16px;border:1px solid rgba(255,215,0,0.2);border-radius:10px;background:rgba(255,255,255,0.03);color:#d8d0c8;font-size:0.8125rem;cursor:pointer;font-family:inherit}
 </style>

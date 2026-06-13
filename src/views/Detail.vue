@@ -124,6 +124,12 @@ function startReply(msgId) {
         <p class="dates">{{ formatDateRange() }}</p>
         <p v-if="daysSinceLeave" class="days">已经离开 {{ daysSinceLeave }} 天</p>
         <div v-if="m.story" class="story"><p class="story-label">📖 在人间的故事</p><p class="story-text">{{ m.story }}</p></div>
+        <div v-if="m.audio" class="story"><p class="story-label">🎵 音频</p>
+          <audio :src="m.audio" controls style="width:100%;margin-top:8px;"></audio>
+        </div>
+        <div v-if="m.video" class="story"><p class="story-label">🎬 视频</p>
+          <video :src="m.video" controls style="width:100%;max-height:300px;margin-top:8px;border-radius:8px;" playsinline></video>
+        </div>
         <div v-if="m.message" class="story"><p class="story-label">💌 妈妈寄语</p><p class="story-text">{{ m.message }}</p></div>
       </div>
 
