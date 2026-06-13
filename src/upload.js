@@ -11,6 +11,11 @@ const API = 'http://localhost:8080/api/upload'
  * @returns {Promise<string|null>} 文件 URL，失败返回 null
  */
 export async function uploadFile(file, type = 'photo') {
+  // 确保文件有名字
+  if (!file.name) {
+    const ext = type === 'video' ? '.mp4' : type === 'audio' ? '.mp3' : '.jpg'
+    file = new File([file], Date.now() + ext, { type: file.type })
+  }
   const formData = new FormData()
   formData.append('file', file)
   formData.append('type', type)

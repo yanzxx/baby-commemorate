@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useMemorials } from '../composables/useMemorials.js'
 
@@ -9,13 +9,29 @@ const { getMemorial, updateMemorial } = useMemorials()
 const newMessage = ref('')
 const replyTo = ref(null)
 
+const m = ref(null)
+console.log('[Detail] setup start')
+
+// 异步加载纪念数据
+async function loadMemorial() {
+  const id = route.params.id
+  console.log('[Detail] loading memorial:', id)
+  const data = await getMemorial(id)
+  console.log('[Detail] loaded:', data)
+  m.value = data
+}
+watch(() => route.params.id, (id) => { console.log('[Detail] route changed:', id); loadMemorial() })
+console.log('[Detail] calling loadMemorial')
+loadMemorial()
+console.log('[Detail] setup done')
+
 // 兼容后端 messagesJson 和前端 messages 数组
 const messagesList = computed(() => {
-  const m = m.value
-  if (!m) return []
-  if (Array.isArray(m.messages)) return m.messages
-  if (m.messagesJson) {
-    try { return JSON.parse(m.messagesJson) } catch {}
+  const mm = m.value
+  if (!mm) return []
+  if (Array.isArray(mm.messages)) return mm.messages
+  if (mm.messagesJson) {
+    try { return JSON.parse(mm.messagesJson) } catch {}
   }
   return []
 })
@@ -25,17 +41,18 @@ const photoInput = ref(null)
 const editAudioInput = ref(null)
 const editVideoInput = ref(null)
 
-const m = computed(() => getMemorial(route.params.id))
 const daysSinceLeave = computed(() => {
-  if (!m.value?.leaveYear || !m.value?.leaveMonth || !m.value?.leaveDay) return null
+  const mm = m.value
+  if (!mm?.leaveYear || !mm?.leaveMonth || !mm?.leaveDay) return null
   const leave = new Date(m.value.leaveYear, m.value.leaveMonth - 1, m.value.leaveDay)
   return Math.max(0, Math.floor((Date.now() - leave.getTime()) / 86400000))
 })
 
 function formatDateRange() {
-  if (!m.value) return ''
-  const b = m.value.birthYear ? `${m.value.birthYear}年${m.value.birthMonth}月${m.value.birthDay}日` : ''
-  const l = m.value.leaveYear ? `${m.value.leaveYear}年${m.value.leaveMonth}月${m.value.leaveDay}日` : ''
+  const mm = m.value
+  if (!mm) return ''
+  const b = mm.birthYear ? `${m.value.birthYear}年${m.value.birthMonth}月${m.value.birthDay}日` : ''
+  const l = mm.leaveYear ? `${m.value.leaveYear}年${m.value.leaveMonth}月${m.value.leaveDay}日` : ''
   return b && l ? `${b} — ${l}` : b ? `出生于 ${b}` : l ? `离开于 ${l}` : ''
 }
 
@@ -74,6 +91,27 @@ async function saveEdit() {
   } else { data.leaveYear = ''; data.leaveMonth = ''; data.leaveDay = '' }
   delete data.id; delete data.candles; delete data.flowers; delete data.messages; delete data.createdAt
   delete data.birthDateNative; delete data.leaveDateNative
+
+  // 上传文件到七牛云
+  const { uploadPhoto, uploadAudio, uploadVideo } = await import('../upload.js')
+
+  if (data.photo && data.photo.startsWith('data:')) {
+    const file = await fetch(data.photo).then(r => r.blob())
+    const url = await uploadPhoto(file)
+    if (url) data.photo = url
+  }
+  if (data.audio && data.audio.startsWith('data:')) {
+    const file = await fetch(data.audio).then(r => r.blob())
+    const url = await uploadAudio(file)
+    if (url) data.audio = url
+  }
+  if (data.video && data.video.startsWith('data:')) {
+    const file = await fetch(data.video).then(r => r.blob())
+    const url = await uploadVideo(file)
+    if (url) data.video = url
+  }
+
+  delete data.audioName; delete data.videoName
   updateMemorial(m.value.id, data)
   isEditing.value = false
 }
@@ -91,25 +129,35 @@ function onPhotoChange(e) {
 const years = computed(() => Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - i))
 function daysInMonth(y, m) { return (!y || !m) ? 31 : new Date(y, m, 0).getDate() }
 
-function lightCandle() { if (m.value) updateMemorial(m.value.id, { candles: (m.value.candles || 0) + 1 }) }
-function offerFlower() { if (m.value) updateMemorial(m.value.id, { flowers: (m.value.flowers || 0) + 1 }) }
+async function lightCandle() { if (!m.value) return; m.value.candles = (m.value.candles || 0) + 1; try { await updateMemorial(m.value.id, { candles: m.value.candles }) } catch {} }
+async function offerFlower() { if (!m.value) return; m.value.flowers = (m.value.flowers || 0) + 1; try { await updateMemorial(m.value.id, { flowers: m.value.flowers }) } catch {} }
 function addMessage() {
   if (!m.value || !newMessage.value.trim()) return
-  const msgs = [...(m.value.messages || [])]
+  const text = newMessage.value.trim()
+  const time = new Date().toISOString()
+  
+  // 本地乐观更新
+  if (!m.value.messages) m.value.messages = []
+  const msg = { id: Date.now().toString(), text, time, replies: [] }
+  
   if (replyTo.value) {
-    // 回复
-    const parent = msgs.find(msg => msg.id === replyTo.value)
+    const parent = m.value.messages.find(msg => msg.id === replyTo.value)
     if (parent) {
       if (!parent.replies) parent.replies = []
-      parent.replies.push({ id: Date.now().toString(), text: newMessage.value.trim(), time: new Date().toISOString() })
+      parent.replies.push({ id: Date.now().toString(), text, time })
     }
     replyTo.value = null
   } else {
-    // 新留言
-    msgs.push({ id: Date.now().toString(), text: newMessage.value.trim(), time: new Date().toISOString(), replies: [] })
+    m.value.messages.push(msg)
   }
-  updateMemorial(m.value.id, { messages: msgs })
   newMessage.value = ''
+
+  // 同步到后端
+  fetch('http://localhost:8080/api/memorials/' + m.value.id + '/message', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text }),
+  }).catch(e => console.warn('留言同步失败:', e))
 }
 
 function startReply(msgId) {
