@@ -8,6 +8,28 @@ const { publicMemorials } = useMemorials()
 const canvasRef = ref(null)
 const showTip = ref(false)
 const tipPos = ref({ x: 0, y: 0 })
+const viewMode = ref('sphere') // 'sphere' | 'list'
+
+const sortedMemorials = computed(() => {
+  const list = [...publicMemorials.value]
+  list.sort((a, b) => {
+    const daysA = getDaysSinceLeave(a)
+    const daysB = getDaysSinceLeave(b)
+    return daysB - daysA // 去世越久排越前
+  })
+  return list
+})
+
+function getDaysSinceLeave(m) {
+  if (!m.leaveYear || !m.leaveMonth || !m.leaveDay) return -1
+  const leave = new Date(m.leaveYear, m.leaveMonth - 1, m.leaveDay)
+  return Math.max(0, Math.floor((Date.now() - leave.getTime()) / 86400000))
+}
+
+function formatDate(m) {
+  if (!m.leaveYear) return ''
+  return `${m.leaveYear}年${m.leaveMonth}月${m.leaveDay}日`
+}
 
 const dailyQuote = computed(() => {
   const q = ['每个小天使来到这个世界，都曾带来无尽的爱与希望。','他们虽然离开了，但爱永远不会消失。','在另一个世界，他们一定在微笑着看着我们。','生命的意义不在于长短，而在于曾经带来的温暖。','每一次思念，都是爱的延续。','他们教会了我们什么是无条件的爱。']
@@ -321,6 +343,41 @@ onMounted(() => { initParticles() })
 
     <div class="daily-quote" style="position:fixed;bottom:60px;left:0;right:0;z-index:2;pointer-events:none;">
       <span style="color:rgba(255,215,0,0.3);">✦</span> {{ dailyQuote }}
+    </div>
+
+    <!-- 切换按钮 -->
+    <div style="position:fixed;top:20px;right:16px;z-index:3;">
+      <button @click="viewMode = viewMode === 'sphere' ? 'list' : 'sphere'" style="background:rgba(255,215,0,0.1);border:1px solid rgba(255,215,0,0.2);border-radius:20px;padding:6px 14px;color:#ffd700;font-size:0.75rem;cursor:pointer;font-family:inherit;backdrop-filter:blur(8px);">
+        {{ viewMode === 'sphere' ? '📋 列表' : '🌌 星球' }}
+      </button>
+    </div>
+
+    <!-- 列表视图 -->
+    <div v-if="viewMode === 'list'" style="position:fixed;inset:0;z-index:2;overflow-y:auto;padding:80px 16px 100px;background:rgba(6,6,16,0.97);">
+      <div v-if="sortedMemorials.length === 0" style="text-align:center;padding:60px 20px;color:rgba(200,190,220,0.4);">
+        <div style="font-size:3rem;margin-bottom:16px;">✨</div>
+        <p>还没有小天使</p>
+      </div>
+      <div v-else style="max-width:480px;margin:0 auto;display:flex;flex-direction:column;gap:10px;">
+        <div v-for="m in sortedMemorials" :key="m.id" @click="$router.push('/detail/' + m.id)" style="display:flex;align-items:center;gap:14px;padding:14px 16px;background:rgba(20,20,40,0.8);border:1px solid rgba(255,215,0,0.06);border-radius:16px;cursor:pointer;transition:all 0.2s;backdrop-filter:blur(10px);"
+             @mouseenter="$event.target.style.borderColor='rgba(255,215,0,0.2)'" @mouseleave="$event.target.style.borderColor='rgba(255,215,0,0.06)'">
+          <div style="width:44px;height:44px;border-radius:50%;overflow:hidden;flex-shrink:0;background:rgba(255,215,0,0.1);display:flex;align-items:center;justify-content:center;font-size:1.4rem;">
+            <img v-if="m.photo" :src="m.photo" style="width:100%;height:100%;object-fit:cover;" />
+            <span v-else>{{ m.gender==='boy'?'👦':m.gender==='girl'?'👧':'👼' }}</span>
+          </div>
+          <div style="flex:1;min-width:0;">
+            <p style="font-size:1rem;font-weight:600;">{{ m.name }}</p>
+            <p v-if="m.leaveYear" style="font-size:0.75rem;color:rgba(200,190,220,0.5);margin-top:2px;">
+              去世时间 {{ formatDate(m) }}
+              <span v-if="getDaysSinceLeave(m) >= 0" style="color:rgba(232,160,176,0.6);margin-left:8px;">已离开 {{ getDaysSinceLeave(m) }} 天</span>
+            </p>
+          </div>
+          <div style="display:flex;gap:8px;font-size:0.75rem;color:rgba(200,190,220,0.4);flex-shrink:0;">
+            <span>🕯{{ m.candles || 0 }}</span>
+            <span>🤍{{ m.flowers || 0 }}</span>
+          </div>
+        </div>
+      </div>
     </div>
 
     <Teleport to="body">
