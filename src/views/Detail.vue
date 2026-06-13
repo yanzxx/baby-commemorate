@@ -8,6 +8,17 @@ const router = useRouter()
 const { getMemorial, updateMemorial } = useMemorials()
 const newMessage = ref('')
 const replyTo = ref(null)
+
+// 兼容后端 messagesJson 和前端 messages 数组
+const messagesList = computed(() => {
+  const m = m.value
+  if (!m) return []
+  if (Array.isArray(m.messages)) return m.messages
+  if (m.messagesJson) {
+    try { return JSON.parse(m.messagesJson) } catch {}
+  }
+  return []
+})
 const isEditing = ref(false)
 const editForm = ref({})
 const photoInput = ref(null)
@@ -150,8 +161,8 @@ function startReply(msgId) {
 
       <div class="card">
         <h3 v-show="!isEditing" class="st">💬 留言寄思</h3>
-        <div v-if="m.messages?.length && !isEditing" class="ml">
-          <div v-for="(msg,i) in m.messages" :key="msg.id" class="mi">
+        <div v-if="messagesList.length && !isEditing" class="ml">
+          <div v-for="(msg,i) in messagesList" :key="msg.id" class="mi">
             <p class="mt">{{ msg.text }}</p>
             <p class="mtime">
               <span>{{ formatTime(msg.time) }}</span>

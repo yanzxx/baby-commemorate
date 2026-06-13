@@ -1,70 +1,133 @@
 import { ref, computed } from 'vue'
+import api from '../api.js'
 
 const memorials = ref([])
+const loading = ref(false)
 
-function load() {
+async function load() {
+  loading.value = true
   try {
-    const raw = localStorage.getItem('baby_memorials')
-    if (!raw) { memorials.value = []; return }
-    if (raw.length > 3000000) {
-      // 数据太大，清理后重新保存
-      const data = JSON.parse(raw)
-      const clean = data.map(sanitize)
-      localStorage.setItem('baby_memorials', JSON.stringify(clean))
-      memorials.value = clean
-    } else {
-      memorials.value = JSON.parse(raw)
-    }
+    memorials.value = await api.get('/memorials')
   } catch {
-    memorials.value = []
+    // fallback to localStorage
+    try {
+      memorials.value = JSON.parse(localStorage.getItem('baby_memorials') || '[]')
+    } catch {
+      memorials.value = []
+    }
+  }
+  loading.value = false
+}
+
+async function addMemorial(m) {
+  try {
+    // 清理前端临时字段
+    const data = { ...m }
+    delete data.id
+    delete data.audioName
+    delete data.videoName
+
+    const saved = await api.post('/memorials', data)
+    memorials.value.unshift(saved)
+    return saved
+  } catch (e) {
+    console.warn('后端保存失败，使用本地存储:', e.message)
+    memorials.value.unshift(m)
+    saveToLocal()
+    return m
   }
 }
 
-function sanitize(m) {
+async function updateMemorial(id, updates) {
+  // 清理前端临时字段
+  const data = { ...updates }
+  delete data.audioName
+  delete data.videoName
+
+  try {
+    const saved = await api.put('/memorials/' + id, data)
+    const idx = memorials.value.findIndex(m => m.id === id)
+    if (idx >= 0) Object.assign(memorials.value[idx], saved)
+    return saved
+  } catch (e) {
+    console.warn('后端更新失败，使用本地存储:', e.message)
+    const idx = memorials.value.findIndex(m => m.id === id)
+    if (idx >= 0) {
+      Object.assign(memorials.value[idx], data)
+      saveToLocal()
+    }
+    return memorials.value[idx]
+  }
+}
+
+async function getMemorial(id) {
+  try {
+    return await api.get('/memorials/' + id)
+  } catch {
+    return memorials.value.find(m => m.id === id)
+  }
+}
+
+async function lightCandle(id) {
+  try {
+    const saved = await api.post('/memorials/' + id + '/candle')
+    const idx = memorials.value.findIndex(m => m.id === id)
+    if (idx >= 0) memorials.value[idx].candles = saved.candles
+  } catch (e) {
+    console.warn('点蜡烛失败:', e.message)
+    const m = memorials.value.find(m => m.id === id)
+    if (m) m.candles = (m.candles || 0) + 1
+  }
+}
+
+async function offerFlower(id) {
+  try {
+    const saved = await api.post('/memorials/' + id + '/flower')
+    const idx = memorials.value.findIndex(m => m.id === id)
+    if (idx >= 0) memorials.value[idx].flowers = saved.flowers
+  } catch (e) {
+    console.warn('献花失败:', e.message)
+    const m = memorials.value.find(m => m.id === id)
+    if (m) m.flowers = (m.flowers || 0) + 1
+  }
+}
+
+async function addMessage(id, text) {
+  try {
+    const saved = await api.post('/memorials/' + id + '/message', { text })
+    const idx = memorials.value.findIndex(m => m.id === id)
+    if (idx >= 0) memorials.value[idx].messagesJson = saved.messagesJson
+  } catch (e) {
+    console.warn('留言失败:', e.message)
+    // 本地fallback
+    const m = memorials.value.find(m => m.id === id)
+    if (m) {
+      if (!m.messages) m.messages = []
+      m.messages.push({ text, time: new Date().toISOString() })
+      saveToLocal()
+    }
+  }
+}
+
+function saveToLocal() {
+  try {
+    localStorage.setItem('baby_memorials', JSON.stringify(memorials.value))
+  } catch {}
+}
+
+function sanitizeForLocal(m) {
   const c = { ...m }
   if (c.audio && c.audio.startsWith('data:')) delete c.audio
   if (c.video && c.video.startsWith('data:')) delete c.video
-  if (c.audioName) delete c.audioName
-  if (c.videoName) delete c.videoName
   return c
 }
 
-function save() {
-  const clean = memorials.value.map(sanitize)
-  try {
-    localStorage.setItem('baby_memorials', JSON.stringify(clean))
-  } catch {
-    // 终极方案：只保留文字数据，清理所有媒体
-    const minimal = clean.map(m => {
-      delete m.photo; delete m.audio; delete m.video
-      return m
-    })
-    localStorage.setItem('baby_memorials', JSON.stringify(minimal))
-  }
-  memorials.value = clean
-}
-
-function addMemorial(m) {
-  memorials.value.unshift(m)
-  save()
-}
-
-function updateMemorial(id, updates) {
-  const idx = memorials.value.findIndex(m => m.id === id)
-  if (idx >= 0) {
-    Object.assign(memorials.value[idx], updates)
-    save()
-  }
-}
-
-function getMemorial(id) {
-  return memorials.value.find(m => m.id === id)
-}
-
-const publicMemorials = computed(() => memorials.value.filter(m => m.privacy === 'public'))
+const publicMemorials = computed(() =>
+  memorials.value.filter(m => m.privacy === 'public')
+)
 
 load()
 
 export function useMemorials() {
-  return { memorials, publicMemorials, addMemorial, updateMemorial, getMemorial, save, load }
+  return { memorials, publicMemorials, loading, addMemorial, updateMemorial, getMemorial, lightCandle, offerFlower, addMessage, load }
 }
