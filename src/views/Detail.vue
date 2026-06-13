@@ -11,6 +11,8 @@ const replyTo = ref(null)
 const isEditing = ref(false)
 const editForm = ref({})
 const photoInput = ref(null)
+const editAudioInput = ref(null)
+const editVideoInput = ref(null)
 
 const m = computed(() => getMemorial(route.params.id))
 const daysSinceLeave = computed(() => {
@@ -48,7 +50,7 @@ function cancelEdit() {
   isEditing.value = false
 }
 
-function saveEdit() {
+async function saveEdit() {
   const data = { ...editForm.value }
   // 转换日期格式
   if (data.birthDateNative) {
@@ -65,6 +67,8 @@ function saveEdit() {
   isEditing.value = false
 }
 
+function onEditAudioChange(e) { const f = e.target.files[0]; if (!f) return; editForm.value.audioName = f.name; const r = new FileReader(); r.onload = ev => { editForm.value.audio = ev.target.result }; r.readAsDataURL(f) }
+function onEditVideoChange(e) { const f = e.target.files[0]; if (!f) return; editForm.value.videoName = f.name; const r = new FileReader(); r.onload = ev => { editForm.value.video = ev.target.result }; r.readAsDataURL(f) }
 function onPhotoChange(e) {
   const f = e.target.files[0]
   if (!f) return
@@ -109,10 +113,6 @@ function startReply(msgId) {
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
         <button class="back" @click="router.push('/mine')">← 返回</button>
         <button v-if="!isEditing" class="back" style="color:rgba(255,215,0,0.5);" @click="startEdit">✏️ 编辑</button>
-        <div v-else style="display:flex;gap:8px;">
-          <button class="back" style="color:rgba(200,190,220,0.5);" @click="cancelEdit">取消</button>
-          <button class="back" style="color:#ffd700;" @click="saveEdit">💾 保存</button>
-        </div>
       </div>
 
       <div v-show="!isEditing" class="card tc">
@@ -193,6 +193,20 @@ function startReply(msgId) {
         </div>
         <div class="fg"><label class="el">故事</label><textarea v-model="editForm.story" class="ei" style="min-height:60px;resize:vertical;"></textarea></div>
         <div class="fg"><label class="el">寄语</label><textarea v-model="editForm.message" class="ei" style="min-height:60px;resize:vertical;"></textarea></div>
+        <div class="fg"><label class="el">音频</label>
+          <button type="button" class="media-btn" @click="$refs.editAudioInput.click()">🎵 选择音频</button>
+          <span v-if="editForm.audioName" style="margin-left:10px;font-size:0.75rem;color:rgba(255,215,0,0.6);">{{ editForm.audioName }}</span>
+          <input ref="editAudioInput" type="file" accept="audio/*" style="display:none" @change="onEditAudioChange" />
+        </div>
+        <div class="fg"><label class="el">视频</label>
+          <button type="button" class="media-btn" @click="$refs.editVideoInput.click()">🎬 选择视频</button>
+          <span v-if="editForm.videoName" style="margin-left:10px;font-size:0.75rem;color:rgba(255,215,0,0.6);">{{ editForm.videoName }}</span>
+          <input ref="editVideoInput" type="file" accept="video/*" style="display:none" @change="onEditVideoChange" />
+        </div>
+        <div style="display:flex;gap:12px;margin-top:16px;">
+          <button style="flex:1;padding:12px;border:1px solid rgba(255,215,0,0.15);border-radius:12px;background:transparent;color:rgba(200,190,220,0.6);font-size:0.9375rem;cursor:pointer;font-family:inherit;" @click="cancelEdit">取消</button>
+          <button style="flex:1;padding:12px;border:none;border-radius:12px;background:linear-gradient(135deg,#c89030,#ffd700);color:#0a0a1a;font-size:0.9375rem;font-weight:600;cursor:pointer;font-family:inherit;" @click="saveEdit">💾 保存</button>
+        </div>
       </div>
         <div v-show="!isEditing" class="mi-row mi-input">
           <input v-model="newMessage" class="input" :placeholder="replyTo ? '回复中...' : '写下你的祝福...'" @keyup.enter="addMessage" />
@@ -241,6 +255,7 @@ function startReply(msgId) {
 .el{display:block;font-size:0.75rem;color:rgba(255,215,0,0.5);margin-bottom:6px}
 .ei{width:100%;padding:8px 12px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,215,0,0.12);border-radius:8px;color:#d8d0c8;font-size:0.875rem;font-family:inherit;outline:none}
 .ei:focus{border-color:rgba(255,215,0,0.4)}
+.media-btn{padding:8px 16px;border:1px solid rgba(255,215,0,0.2);border-radius:10px;background:rgba(255,255,255,0.03);color:#d8d0c8;font-size:0.8125rem;cursor:pointer;font-family:inherit}
 .tag{display:inline-block;padding:4px 12px;border-radius:16px;font-size:0.75rem;cursor:pointer;border:1px solid rgba(255,215,0,0.12);background:rgba(255,255,255,0.03);color:rgba(200,190,220,0.6);transition:all 0.2s}
 .tag.active{background:rgba(255,215,0,0.15);color:#ffd700;border-color:rgba(255,215,0,0.3)}
 </style>
@@ -256,6 +271,7 @@ function startReply(msgId) {
 .el{display:block;font-size:0.75rem;color:rgba(255,215,0,0.5);margin-bottom:6px}
 .ei{width:100%;padding:8px 12px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,215,0,0.12);border-radius:8px;color:#d8d0c8;font-size:0.875rem;font-family:inherit;outline:none}
 .ei:focus{border-color:rgba(255,215,0,0.4)}
+.media-btn{padding:8px 16px;border:1px solid rgba(255,215,0,0.2);border-radius:10px;background:rgba(255,255,255,0.03);color:#d8d0c8;font-size:0.8125rem;cursor:pointer;font-family:inherit}
 .tag{display:inline-block;padding:4px 12px;border-radius:16px;font-size:0.75rem;cursor:pointer;border:1px solid rgba(255,215,0,0.12);background:rgba(255,255,255,0.03);color:rgba(200,190,220,0.6);transition:all 0.2s}
 .tag.active{background:rgba(255,215,0,0.15);color:#ffd700;border-color:rgba(255,215,0,0.3)}
 </style>

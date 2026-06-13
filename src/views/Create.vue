@@ -55,7 +55,8 @@ async function submit() {
   delete data.birthDateNative; delete data.leaveDateNative
 
   // 尝试上传文件到七牛云
-  const { uploadMedia } = await import('../qiniu.js')
+  let uploadMedia = async () => null
+try { const m = await import('../qiniu.js'); if (m) uploadMedia = m?.uploadMedia || (() => null) } catch {}
 
   // 上传音频
   if (data.audio && data.audio.startsWith('data:')) {
@@ -73,6 +74,7 @@ async function submit() {
     delete data.videoName
   }
 
+  delete data.audioName; delete data.videoName
   addMemorial({ id: Date.now().toString(), ...data, candles: 0, flowers: 0, messages: [], createdAt: new Date().toISOString() })
   router.push('/')
 }
