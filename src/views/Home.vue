@@ -145,16 +145,18 @@ function initParticles() {
       return { ...sp, ...p, lighting }
     }).sort((a, b) => a.z - b.z)
 
-    // 连线
-    const mems = projected.filter(p => p.type === 'memorial' || p.type === 'mock' || p.type === 'real')
-    for (let i = 0; i < mems.length; i++) {
-      for (let j = i + 1; j < mems.length; j++) {
-        const dx = mems[i].sx - mems[j].sx, dy = mems[i].sy - mems[j].sy
+    // 连线 - 所有点之间
+    const allPoints = projected.filter(p => p.type === 'memorial' || p.type === 'mock' || p.type === 'real')
+    for (let i = 0; i < allPoints.length; i++) {
+      for (let j = i + 1; j < allPoints.length; j++) {
+        const dx = allPoints[i].sx - allPoints[j].sx, dy = allPoints[i].sy - allPoints[j].sy
         const dist = Math.sqrt(dx*dx + dy*dy)
-        if (dist < 130) {
-          ctx.globalAlpha = (1 - dist / 130) * 0.2
-          ctx.strokeStyle = 'rgba(255,215,0,0.5)'; ctx.lineWidth = 0.5
-          ctx.beginPath(); ctx.moveTo(mems[i].sx, mems[i].sy); ctx.lineTo(mems[j].sx, mems[j].sy); ctx.stroke()
+        if (dist < 150) {
+          const distFactor = 1 - dist / 150
+          ctx.globalAlpha = distFactor * 0.2
+          ctx.strokeStyle = 'rgba(200,190,220,0.4)'
+          ctx.lineWidth = 0.4 + distFactor * 0.3
+          ctx.beginPath(); ctx.moveTo(allPoints[i].sx, allPoints[i].sy); ctx.lineTo(allPoints[j].sx, allPoints[j].sy); ctx.stroke()
         }
       }
     }
@@ -196,12 +198,39 @@ function initParticles() {
           ctx.textAlign = 'center'; ctx.fillText(p.name, p.sx, p.sy + Math.max(3, size * 0.9) + 8)
         }
       } else {
-        // mock
-        const pulse = 0.5 + 0.3 * Math.sin(time * 0.002 + p.z * 0.1)
-        ctx.save(); ctx.globalAlpha = alpha * 0.4 * pulse
-        ctx.beginPath(); ctx.arc(p.sx, p.sy, Math.max(1, size * 0.5), 0, Math.PI * 2)
-        ctx.fillStyle = 'hsla(' + p.hue + ',30%,' + (30 + p.lighting * 30) + '%,0.5)'; ctx.fill()
-        ctx.fillStyle = 'hsla(' + p.hue + ',30%,60%,0.3)'
+        // mock - 高亮发光版本
+        const pulse = 0.6 + 0.4 * Math.sin(time * 0.003 + p.z * 0.1)
+        const brightness = 55 + p.lighting * 35
+        const hueSat = Math.round(p.hue)
+        const r = Math.max(2, size * 0.6)
+        // 外层大光晕
+        const outerR = r * 3.5
+        const outer = ctx.createRadialGradient(p.sx, p.sy, 0, p.sx, p.sy, outerR)
+        outer.addColorStop(0, 'hsla(' + hueSat + ',60%,' + brightness + '%,0.2)')
+        outer.addColorStop(1, 'transparent')
+        ctx.fillStyle = outer
+        ctx.beginPath(); ctx.arc(p.sx, p.sy, outerR, 0, Math.PI * 2); ctx.fill()
+        // 内层光晕
+        const innerR = r * 2
+        const inner = ctx.createRadialGradient(p.sx, p.sy, 0, p.sx, p.sy, innerR)
+        inner.addColorStop(0, 'hsla(' + hueSat + ',70%,' + (brightness + 15) + '%,0.35)')
+        inner.addColorStop(1, 'transparent')
+        ctx.fillStyle = inner
+        ctx.beginPath(); ctx.arc(p.sx, p.sy, innerR, 0, Math.PI * 2); ctx.fill()
+        // 主体
+        ctx.save(); ctx.globalAlpha = alpha * 0.8 * pulse
+        ctx.beginPath(); ctx.arc(p.sx, p.sy, r, 0, Math.PI * 2)
+        ctx.fillStyle = 'hsla(' + hueSat + ',60%,' + (brightness + 20) + '%,0.8)'
+        ctx.fill()
+        ctx.strokeStyle = 'hsla(' + hueSat + ',70%,' + (brightness + 25) + '%,0.5)'
+        ctx.lineWidth = 1
+        ctx.stroke()
+        // 中心高光
+        ctx.beginPath(); ctx.arc(p.sx - r*0.25, p.sy - r*0.25, r*0.3, 0, Math.PI * 2)
+        ctx.fillStyle = 'hsla(' + hueSat + ',80%,' + (brightness + 30) + '%,0.4)'
+        ctx.fill()
+        // 图标
+        ctx.fillStyle = 'hsla(0,0%,80%,0.7)'
         ctx.font = Math.round(size * 0.4) + 'px sans-serif'
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
         ctx.fillText('👼', p.sx, p.sy); ctx.restore()
